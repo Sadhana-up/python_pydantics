@@ -1,10 +1,7 @@
-from pydantic import BaseModel,ValidationError, Field,EmailStr,HttpUrl,SecretStr,field_validator, model_validator,ValidationInfo
+from pydantic import BaseModel,ValidationError, Field,EmailStr,HttpUrl,SecretStr,field_validator, model_validator,ValidationInfo,computed_field
 from datetime import datetime,UTC
 from typing import Literal,Annotated
 from uuid import UUID,uuid4
-
-
-#NOW WE R USING DECORATORS AND PYDANTIC :
 
 
 
@@ -19,7 +16,6 @@ class User(BaseModel):
 
     password : SecretStr 
 
-    # age : Annotated[int,Field(ge= 13,le=130)]
     age: int
 
     verified_at : datetime |None = None
@@ -32,7 +28,13 @@ class User(BaseModel):
 
     full_name :str |None = None   
 
-    slug : Annotated[str,Field(pattern=r"^[a-z0-9]+$")]
+    first_name : str =""
+    last_name : str =""
+    follower_count : int = 0
+
+    
+
+    # slug : Annotated[str,Field(pattern=r"^[a-z0-9]+$")]
 
     @field_validator("username")
     @classmethod
@@ -50,29 +52,104 @@ class User(BaseModel):
 
         return value
     
-
-class UserRegistration(BaseModel):
-    email : EmailStr
-    password : str 
-    confirm_password : str 
-
-    @model_validator(mode = "after") ## no use of class method cause we have used validator after 
-    def password_match(self)->"UserRegistration":
-        if self.password != self.confirm_password:
-            raise ValueError("Passwords do not match")
-        
-        return self 
+    @field_validator("website",mode="before")
+    @classmethod
+    def add_https(cls,v :str)->str | None:
+        if v and not v.startswith(("http://","https://")):
+            return f"https://{v}"
+        return v 
+    
+    @computed_field
+    @property
+    def is_inf(self)->bool:
+        return self.follower_count>0
     
 
-try : 
-    res = UserRegistration( 
-        email="sadhana@gmail.com",
-        password="secret123",
-        confirm_password = "notasecret"
-    )
+    @computed_field
+    @property
+    def name(self)->str:
+        return f"{self.username}"
+    
+    
 
-except ValidationError as e : 
-    print(e)
+
+
+
+#Nested models 
+class Comment(BaseModel):
+    content : str 
+    author_email : EmailStr
+    likes : int = 0 
+
+class BlogPost(BaseModel): ##contains user as the author and the lsit od comments 
+    title :str 
+    content: str 
+    author :User
+    view_count:int = 0 
+    is_published : bool = False
+    tags : list[str] = Field(default_factory =list ) 
+    created_at : datetime = Field(default_factory=lambda:datetime.now(tz = UTC))
+    # author_id : int | str
+    status : Literal["Draft","Published","archived "] = "Draft"
+    comments : list[Comment] = Field(default_factory=list)
+
+#AUTOMATICALLY VALIDATES : 
+post_data = {
+    "title": "Understanding Pydantic Models",
+    "content": "Pydantic makes data validation easy and intuitive...",
+    "slug": "understanding-pydantic",
+    "author": {
+        "username": "coreyms",
+        "email": "CoreyMSchafer@gmail.com",
+        "age": 39,
+        "password": "secret123",
+    },
+    "comments": [
+        {
+            "content": "I think I understand nested models now!",
+            "author_email": "student@example.com",
+            "likes": 25,
+        },
+        {
+            "content": "Can you cover FastAPI next?",
+            "author_email": "viewer@example.com",
+            "likes": 15,
+        },
+    ],
+}
+
+post = BlogPost(**post_data)
+
+print(post.model_dump_json(indent=2))
+
+
+#user = User( username="sadhana_uprety",email="humpty@gmail.com",age=33,website="sadhana.com",password="secrettt",first_name="sadhana",last_name="uprety")
+# # print(user)
+# # print(user.model_dump_json(indent=3))
+
+
+# class UserRegistration(BaseModel):
+#     email : EmailStr
+#     password : str 
+#     confirm_password : str 
+
+#     @model_validator(mode = "after") ## no use of class method cause we have used validator after 
+#     def password_match(self)->"UserRegistration":
+#         if self.password != self.confirm_password:
+#             raise ValueError("Passwords do not match")
+        
+#         return self 
+    
+
+# try : 
+#     res = UserRegistration( 
+#         email="sadhana@gmail.com",
+#         password="secret123",
+#         confirm_password = "notasecret"
+#     )
+
+# except ValidationError as e : 
+#     print(e)
 
 
  
