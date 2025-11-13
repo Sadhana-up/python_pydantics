@@ -118,7 +118,7 @@ post_data = {
     ],
 }
 
-post = BlogPost(**post_data)
+post = BlogPost(**post_data) # or use BlogPost.model_vaidate(post_data)
 
 print(post.model_dump_json(indent=2))
 
